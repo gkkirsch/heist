@@ -1,19 +1,31 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+const functions = require('firebase-functions');
 
-const {onRequest} = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
+const Anthropic = require('@anthropic-ai/sdk');
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+const ANTHROPIC_API_KEY = functions.config().anthropic.key;
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+exports.generateNickname = functions.https.onCall(async (data, context) => {
+  const { firstName } = data;
+
+  if (!firstName) {
+    throw new functions.https.HttpsError('invalid-argument', 'First name is required');
+  }
+
+  try {
+    const anthropic = new Anthropic({
+      apiKey: ANTHROPIC_API_KEY, // defaults to process.env["ANTHROPIC_API_KEY"]
+    });
+
+    const msg = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20240620",
+      max_tokens: 30,
+      messages: [{ role: "user", content: `Generate a cool, short nickname for someone named ${firstName}. Just return the nickname, nothing else.` }],
+    });
+
+    console.info('Completion complete', msg);
+    return { nickname: msg.content[0].text.trim() };
+  } catch (error) {
+    console.error('Error generating nickname:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to generate nickname');
+  }
+});
