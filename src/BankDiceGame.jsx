@@ -13,6 +13,7 @@ export default function BankDiceGame() {
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -127,6 +128,7 @@ export default function BankDiceGame() {
       bank: newBank,
       totalRolls: newTotalRolls,
       roundBroke: roundBroke,
+      lastRoll: value
     };
 
     console.log("Applying updates:", updates);

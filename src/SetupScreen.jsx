@@ -41,23 +41,21 @@ export default function SetupScreen({ exitGame, gameState, updateGameState, join
       return;
     }
 
-    if (!playerNickname) {
-      setIsGeneratingNickname(true);
-      const generatedNickname = await generateNickname(playerName);
-      setIsGeneratingNickname(false);
-      setPlayerNickname(generatedNickname || playerName);
-    }
+    setIsGeneratingNickname(true);
+    const generatedNickname = await generateNickname(playerName);
+    setIsGeneratingNickname(false);
+    setPlayerNickname(generatedNickname || playerName);
 
     if (isReturningPlayer) {
       updateGameState({
         players: gameState.players.map(player =>
           player.id === currentPlayerId
-            ? { ...player, name: playerName, nickname: playerNickname || player.nickname, avatar: selectedAvatar }
+            ? { ...player, name: generatedNickname, realName: playerName || player.nickname, avatar: selectedAvatar }
             : player
         )
       });
     } else {
-      joinGame(playerName, selectedAvatar, playerNickname);
+      joinGame(generatedNickname || playerName, selectedAvatar);
     }
   };
 
@@ -128,7 +126,7 @@ export default function SetupScreen({ exitGame, gameState, updateGameState, join
             className="w-full bg-red-500 hover:bg-red-600 text-white font-bold font-xl mt-4 font-lato py-3 px-6 rounded-lg shadow-lg transform transition duration-200 ease-in-out hover:scale-105 active:scale-95"
             disabled={isGeneratingNickname}
           >
-            {isGeneratingNickname ? 'Generating Nickname...' : 'Join Game'}
+            {isGeneratingNickname ? 'Joining game...' : 'Join Game'}
           </button>
         </form>
       )}
@@ -151,7 +149,7 @@ export default function SetupScreen({ exitGame, gameState, updateGameState, join
           )}
           {!isCreator && (
             <p className="mt-4 text-center text-gray-400">
-              Waiting for the game creator to start the heist...
+              Waiting for the boss to start the heist...
             </p>
           )}
         </div>

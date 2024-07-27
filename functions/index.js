@@ -19,7 +19,7 @@ exports.generateNickname = functions.https.onCall(async (data, context) => {
     const msg = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 30,
-      messages: [{ role: "user", content: `Generate a cool, short nickname for someone named ${firstName}. Just return the nickname, nothing else.` }],
+      messages: [{ role: "user", content: `Generate a cool, short nickname for someone named ${firstName}. The nickname should include their name or part of their name. It should be gansta. Just return the nickname, nothing else.` }],
     });
 
     console.info('Completion complete', msg);
