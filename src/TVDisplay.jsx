@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { addCommas } from "./utils";
-import { Crown, ArrowUp, CheckCircle, XCircle, Loader, Medal, Trophy, DollarSign, AlertTriangle, Zap, Target } from 'lucide-react';
+import { Crown, ArrowUp, CheckCircle, Loader, Medal, Trophy, DollarSign, AlertTriangle, Zap, Target } from 'lucide-react';
 import AvatarSelection from "./AvatarSelection"
 import logo from "./assets/heist-logo.svg"
 import MoneyCountupAnimation from './MoneyCountupAnimation';
+import siren from "./assets/siren.mp3"
 
 const AnimatedRoundDisplay = ({ currentRound, totalRounds }) => {
   const [animate, setAnimate] = useState(false);
@@ -18,8 +19,7 @@ const AnimatedRoundDisplay = ({ currentRound, totalRounds }) => {
   }, [currentRound]);
 
   return (
-    <div className={`text-4xl font-bold text-red-500 mb-8 transition-all duration-1000 ease-in-out ${animate ? 'scale-150 text-yellow-400' : ''
-      }`}>
+    <div className={`text-4xl font-bold text-red-500 mb-8 transition-all duration-1000 ease-in-out ${animate ? 'scale-150 text-yellow-400' : ''}`}>
       Round {currentRound} of {totalRounds}
     </div>
   );
@@ -31,6 +31,7 @@ export default function TVDisplay() {
   const [isFlashing, setIsFlashing] = useState(false);
   const [lastRoll, setLastRoll] = useState(null);
   const [currentRound, setCurrentRound] = useState(1);
+  const alarmAudioRef = useRef(new Audio(siren)); // Adjust the path as needed
 
   useEffect(() => {
     const gameRef = doc(db, 'games', gameCode);
@@ -38,8 +39,9 @@ export default function TVDisplay() {
       if (doc.exists()) {
         const newGameState = doc.data();
         setGameState(prevState => {
-          if (prevState && newGameState.lastRoll === 7 && prevState.lastRoll !== 7) {
+          if (prevState && newGameState.lastRoll === 7 && prevState.lastRoll !== 7 && newGameState.totalRolls >= 3) {
             triggerFlashingEffect();
+            alarmAudioRef.current.play();
           }
           if (prevState && newGameState.roundsLeft !== prevState.roundsLeft) {
             setCurrentRound(Math.abs(newGameState.roundsLeft - newGameState.numRounds - 1));
@@ -88,59 +90,17 @@ export default function TVDisplay() {
         <h2 className="text-3xl font-semibold mb-2">Current Heist</h2>
         <MoneyCountupAnimation amount={gameState?.bank} duration={1000} />
 
-        {!gameState.waitingForDecisions && (
-          <p className="text-4xl font-bold flex items-center mt-4">
-            <AvatarSelection
-              avatar={currentPlayer?.avatar}
-              size={50}
-              selectedAvatar={currentPlayer?.avatar}
-              setSelectedAvatar={() => { }}
-              borderWidth={2}
-            />
-            <span className="ml-4">{currentPlayer?.name}'s Up</span>
-          </p>
-        )}
+        <p className="text-4xl font-bold flex items-center mt-4">
+          <AvatarSelection
+            avatar={currentPlayer?.avatar}
+            size={50}
+            selectedAvatar={currentPlayer?.avatar}
+            setSelectedAvatar={() => { }}
+            borderWidth={2}
+          />
+          <span className="ml-4">{currentPlayer?.name}'s Up</span>
+        </p>
       </div>
-
-      {gameState.waitingForDecisions && (
-        <div className="w-full max-w-3xl mb-8">
-          <h3 className="text-2xl font-semibold mb-4">Players are weighing their options...</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {gameState.players.map((player) => (
-              <div key={player?.id} className="flex items-center justify-between bg-gray-800 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <span className="text-2xl mr-2">
-                    <AvatarSelection
-                      avatar={player?.avatar}
-                      size={50}
-                      selectedAvatar={player?.avatar}
-                      setSelectedAvatar={() => { }}
-                      borderWidth={2}
-                    />
-                  </span>
-                  <span className="font-semibold">{player?.name}</span>
-                </div>
-                {player.hasBanked ? (
-                  <span className="text-yellow-400 flex items-center">
-                    <CheckCircle className="mr-2" size={20} />
-                    Took the cash
-                  </span>
-                ) : gameState.secretDecisions && gameState.secretDecisions[player.id] ? (
-                  <span className="text-green-400 flex items-center">
-                    <CheckCircle className="mr-2" size={20} />
-                    Ready
-                  </span>
-                ) : (
-                  <span className="text-blue-400 flex items-center">
-                    <Loader className="mr-2 animate-spin" size={20} />
-                    Contemplating
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="w-full max-w-3xl">
         <table className="w-full">
@@ -156,6 +116,14 @@ export default function TVDisplay() {
                   <td className="text-2xl px-8 py-4">
                     {index + 1}
                     {showCrown && <Crown className="inline ml-2 text-yellow-400" size={20} />}
+                  </td>
+                  <td className="text-lg px-8 py-4">
+                    {player.hasBanked && (
+                      <span className="text-yellow-400 flex items-center">
+                        <CheckCircle className="mr-2" size={20} />
+                        Banked
+                      </span>
+                    )}
                   </td>
                   <td className="py-4">
                     <div className="flex items-center">

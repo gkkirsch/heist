@@ -132,101 +132,63 @@ export default function BankDiceGame() {
     };
 
     console.log("Applying updates:", updates);
-    const updatedGameState = await updateGameState(updates);
+    await updateGameState(updates);
 
     if (roundBroke) {
-      await endRound(updatedGameState);
-    } else if (newTotalRolls >= 3) {
-      await promptForDecisions(updatedGameState);
+      await endRound(currentGameState);
+      await moveToNextPlayer(currentGameState);
     } else {
-      await moveToNextPlayer(updatedGameState);
+      await moveToNextPlayer(currentGameState);
     }
   };
 
-  const promptForDecisions = async (currentGameState) => {
-    const updates = {
-      waitingForDecisions: true,
-      secretDecisions: {}
-    };
-    await updateGameState(updates);
-  };
+  const handleBank = async (playerId) => {
 
-  const makeDecision = async (playerId, decision) => {
     const currentGameState = await getLatestGameState();
-    if (!currentGameState.waitingForDecisions) {
-      alert("It's not time to make a decision!");
+    console.log("HOHOHOHOHOHOHO", currentGameState)
+    if (currentGameState.roundBroke || currentGameState.totalRolls < 3) {
       return;
     }
-    console.log("Player decision:", playerId, decision);
-    const updatedSecretDecisions = {
-      ...currentGameState.secretDecisions,
-      [playerId]: decision
-    };
 
-    const updatedGameState = await updateGameState({ secretDecisions: updatedSecretDecisions });
+    console.log("Player banking:", playerId);
 
-    if (Object.keys(updatedSecretDecisions).length === updatedGameState.players.filter(p => !p.hasBanked).length) {
-      await resolveSecretDecisions(updatedSecretDecisions, updatedGameState);
+    const playerIndex = currentGameState.players.findIndex(p => p.id === playerId);
+    if (playerIndex === -1) {
+      console.error("Player not found");
+      return;
     }
-  };
 
-  const resolveSecretDecisions = async (currentSecretDecisions, currentGameState) => {
-    const updatedPlayers = currentGameState.players.map(player => {
-      const decision = currentSecretDecisions[player.id];
-      if (decision === 'bank' && !player.hasBanked) {
-        console.log("HERE IT IS", player.score, currentGameState.bank)
-        return {
-          ...player,
-          score: player.score + currentGameState.bank,
-          hasBanked: true
-        };
-      }
-      return player;
-    });
-
-    const allBanked = updatedPlayers.every(player => player.hasBanked);
+    const updatedPlayers = [...currentGameState.players];
+    updatedPlayers[playerIndex] = {
+      ...updatedPlayers[playerIndex],
+      score: updatedPlayers[playerIndex].score + currentGameState.bank,
+      hasBanked: true
+    };
 
     const updates = {
       players: updatedPlayers,
-      waitingForDecisions: false,
-      secretDecisions: {},
-      bank: allBanked ? 0 : currentGameState.bank,
     };
 
-    try {
-      const updatedGameState = await updateGameState(updates);
+    await updateGameState(updates);
 
-      if (allBanked) {
-        await endRound(updatedGameState);
-      } else {
-        await moveToNextPlayer(updatedGameState);
-      }
-    } catch (error) {
-      console.error("Error updating game state:", error);
+    if (updatedPlayers.every(player => player.hasBanked)) {
+      await endRound(currentGameState);
+    } else if (playerIndex === currentGameState.currentPlayerIndex) {
+      await moveToNextPlayer(currentGameState);
     }
   };
 
   const moveToNextPlayer = async (currentGameState) => {
-    let nextPlayerIndex = (currentGameState.currentPlayerIndex + 1) % currentGameState.players.length;
-    let loopCount = 0;
+    let nextPlayerIndex = currentGameState.currentPlayerIndex;
+    const playerCount = currentGameState.players.length;
 
-    while (
-      (currentGameState.players[nextPlayerIndex].hasBanked ||
-        currentGameState.secretDecisions[currentGameState.players[nextPlayerIndex].id] === 'bank') &&
-      loopCount < currentGameState.players.length
-    ) {
-      nextPlayerIndex = (nextPlayerIndex + 1) % currentGameState.players.length;
-      loopCount++;
-    }
+    do {
+      nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
+    } while (currentGameState.players[nextPlayerIndex].hasBanked && nextPlayerIndex !== currentGameState.currentPlayerIndex);
 
-    if (loopCount === currentGameState.players.length) {
-      // All players have banked or decided to bank, end the round
-      await endRound(currentGameState);
-    } else {
-      await updateGameState({
-        currentPlayerIndex: nextPlayerIndex,
-      });
-    }
+    await updateGameState({
+      currentPlayerIndex: nextPlayerIndex,
+    });
   };
 
   const endRound = async (currentGameState) => {
@@ -235,16 +197,20 @@ export default function BankDiceGame() {
       hasBanked: false
     }));
 
+    // Find the next player who hasn't played this round
+    let nextPlayerIndex = currentGameState.currentPlayerIndex;
+    do {
+      nextPlayerIndex = (nextPlayerIndex + 1) % updatedPlayers.length;
+    } while (nextPlayerIndex !== currentGameState.currentPlayerIndex);
+
     const updates = {
       players: updatedPlayers,
       roundsLeft: currentGameState.roundsLeft - 1,
-      currentPlayerIndex: 0,
+      currentPlayerIndex: nextPlayerIndex,
       bank: 0,
       roundBroke: false,
       totalRolls: 0,
       gameOver: currentGameState.roundsLeft <= 1,
-      waitingForDecisions: false,
-      secretDecisions: {}
     };
 
     await updateGameState(updates);
@@ -287,8 +253,6 @@ export default function BankDiceGame() {
       gameStarted: true,
       currentPlayerIndex: 0,
       roundsLeft: currentGameState.numRounds || 10,
-      waitingForDecisions: false,
-      secretDecisions: {},
       bank: 0,
       totalRolls: 0
     });
@@ -316,8 +280,6 @@ export default function BankDiceGame() {
       roundsLeft: currentGameState.numRounds || 10,
       roundBroke: false,
       totalRolls: 0,
-      waitingForDecisions: false,
-      secretDecisions: {}
     };
 
     await updateGameState(updates);
@@ -352,7 +314,7 @@ export default function BankDiceGame() {
           gameState={gameState}
           currentPlayerId={currentPlayerId}
           handleRoll={handleRoll}
-          makeDecision={makeDecision}
+          handleBank={handleBank}
           resetGame={resetGame}
           exitGame={exitGame}
         />

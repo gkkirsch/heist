@@ -1,12 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Siren } from 'lucide-react';
 
 export default function RollButtons({ handleRoll, gameState, isCurrentPlayerTurn, isAnimating }) {
   const buttons = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-  const handleRollClick = (value) => {
-    handleRoll(value);
-  };
+  const [touchedButton, setTouchedButton] = useState(null);
+
+  const vibrateDevice = useCallback((duration) => {
+    if ('vibrate' in navigator && isCurrentPlayerTurn) {
+      navigator.vibrate(duration);
+    }
+  }, [isCurrentPlayerTurn]);
+
+  const handleTouchStart = useCallback((value) => {
+    setTouchedButton(value);
+    vibrateDevice(50); // Short vibration on touch start
+  }, [vibrateDevice]);
+
+  const handleTouchEnd = useCallback((value) => {
+    setTouchedButton(null);
+    if (!isAnimating && isCurrentPlayerTurn && !gameState.gameOver && !gameState.roundBroke) {
+      handleRoll(value);
+      vibrateDevice(100); // Longer vibration on successful roll
+    }
+  }, [handleRoll, isAnimating, isCurrentPlayerTurn, gameState, vibrateDevice]);
+
+  useEffect(() => {
+    const preventDefault = (e) => e.preventDefault();
+    document.addEventListener('touchmove', preventDefault, { passive: false });
+    return () => {
+      document.removeEventListener('touchmove', preventDefault);
+    };
+  }, []);
 
   const ButtonContent = ({ value, isHovered, isSpecialSeven }) => {
     const moneyValue = value === 7 && gameState?.totalRolls <= 3 ? 70000 : value * 1000;
@@ -52,32 +77,32 @@ export default function RollButtons({ handleRoll, gameState, isCurrentPlayerTurn
         return (
           <button
             key={value}
-            onClick={() => handleRollClick(value)}
+            onTouchStart={() => handleTouchStart(value)}
+            onTouchEnd={() => handleTouchEnd(value)}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             disabled={isDisabled}
             className={`relative text-white font-bold py-6 px-8 rounded-lg shadow-lg transform transition duration-200 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50 overflow-hidden text-4xl
               ${isSpecialSeven
-                ? isHovered ? 'bg-black' : 'bg-gray-700'
+                ? touchedButton === value ? 'bg-black' : 'bg-gray-700'
                 : value === 7 && gameState.totalRolls <= 3
                   ? 'bg-yellow-500 hover:bg-yellow-600'
                   : 'bg-green-500 hover:bg-green-600'
-              }`}
+              } ${touchedButton === value ? 'scale-95' : ''}`}
           >
-            {isSpecialSeven && !isHovered && (
-              <div
-                className="bg-red-500 absolute inset-0"
-              />
+            {isSpecialSeven && touchedButton !== value && (
+              <div className="bg-red-500 absolute inset-0" />
             )}
-            <ButtonContent value={value} isHovered={isHovered} isSpecialSeven={isSpecialSeven} />
+            <ButtonContent value={value} isHovered={isHovered || touchedButton === value} isSpecialSeven={isSpecialSeven} />
           </button>
         );
       })}
       {gameState.totalRolls >= 3 && (
         <button
-          onClick={() => handleRollClick('double')}
+          onTouchStart={() => handleTouchStart('double')}
+          onTouchEnd={() => handleTouchEnd('double')}
           disabled={isDisabled}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-6 px-8 rounded-lg shadow-lg transform transition duration-200 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50 text-xl col-span-3"
+          className={`bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-6 px-8 rounded-lg shadow-lg transform transition duration-200 ease-in-out hover:scale-105 active:scale-95 disabled:opacity-50 text-xl col-span-3 ${touchedButton === 'double' ? 'scale-95' : ''}`}
         >
           Double
         </button>

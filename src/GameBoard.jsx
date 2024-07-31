@@ -6,28 +6,21 @@ import logo from "./assets/heist-logo.svg";
 import AvatarSelection from "./AvatarSelection"
 import { X } from 'lucide-react';
 
-const PlayerDecision = ({ onDecision }) => (
-  <div className="flex justify-between items-center mb-4 p-4 rounded-lg">
-    <button
-      onClick={() => onDecision('bank')}
-      className="bg-green-600 hover:bg-green-700 text-white text-xl font-bold w-40 py-8 px-4 rounded mr-2"
-    >
-      Take it
-    </button>
-    <button
-      onClick={() => onDecision('continue')}
-      className="bg-red-600 hover:bg-red-700 text-white text-xl font-bold w-40 py-8 px-4 rounded"
-    >
-      Risk it
-    </button>
-  </div>
+const BankButton = ({ onBank, isDisabled }) => (
+  <button
+    onClick={onBank}
+    disabled={isDisabled}
+    className="bg-green-600 hover:bg-green-700 text-white text-xl font-bold w-full py-4 px-4 rounded mb-4 disabled:opacity-50"
+  >
+    Take it
+  </button>
 );
 
 export default function GameBoard({
   gameState,
   currentPlayerId,
   handleRoll,
-  makeDecision,
+  handleBank,
   resetGame,
   exitGame
 }) {
@@ -53,7 +46,7 @@ export default function GameBoard({
   const currentPlayerIndex = gameState.players.findIndex(player => player.id === currentPlayerId);
   const isCurrentPlayerTurn = currentPlayerIndex === gameState.currentPlayerIndex;
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const currentPlayerDecision = gameState.secretDecisions?.[currentPlayerId];
+  const currentPlayerHasBanked = gameState.players[currentPlayerIndex].hasBanked;
 
   if (gameState.gameOver) {
     const playerScore = gameState.players.find(player => player.id === currentPlayerId)?.score || 0;
@@ -94,37 +87,31 @@ export default function GameBoard({
         <p className="mb-8 text-red-600 uppercase font-bold">Round {Math.abs(gameState.roundsLeft - gameState.numRounds - 1)}</p>
       </div>
       <div className="self-end p-6 mb-6">
-
-        {!gameState.waitingForDecisions && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <AvatarSelection
-                borderWidth={2}
-                avatar={currentPlayer?.avatar}
-                size={40}
-                selectedAvatar={currentPlayer?.avatar}
-                setSelectedAvatar={() => { }}
-              />
-              <div>
-                <h3 className="ml-4 text-2xl font-bold">
-                  {isCurrentPlayerTurn ? "Your turn to bag the cash." : `${currentPlayer?.name}'s Up`}
-                </h3>
-              </div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <AvatarSelection
+              borderWidth={2}
+              avatar={currentPlayer?.avatar}
+              size={40}
+              selectedAvatar={currentPlayer?.avatar}
+              setSelectedAvatar={() => { }}
+            />
+            <div>
+              <h3 className="ml-4 text-2xl font-bold">
+                {isCurrentPlayerTurn ? "Your turn to bag the cash." : `${currentPlayer?.name}'s Up`}
+              </h3>
             </div>
           </div>
+        </div>
+
+        {gameState.totalRolls >= 3 && !currentPlayerHasBanked && (
+          <BankButton
+            onBank={() => handleBank(currentPlayerId)}
+            isDisabled={gameState.roundBroke}
+          />
         )}
 
-        {gameState.waitingForDecisions ? (
-          currentPlayerDecision || gameState.players[currentPlayerIndex].hasBanked ? (
-            <p className="text-center text-md text-gray-400 mt-4">
-              Standing by for the gang to decide....
-            </p>
-          ) : (
-            <PlayerDecision
-              onDecision={(decision) => makeDecision(currentPlayerId, decision)}
-            />
-          )
-        ) : isCurrentPlayerTurn ? (
+        {isCurrentPlayerTurn && !currentPlayerHasBanked && (
           <RollButtons
             handleRoll={handleRoll}
             handleExplode={handleExplode}
@@ -132,7 +119,9 @@ export default function GameBoard({
             isCurrentPlayerTurn={isCurrentPlayerTurn}
             isAnimating={isAnimating}
           />
-        ) : (
+        )}
+
+        {(!isCurrentPlayerTurn || currentPlayerHasBanked) && (
           <p className="text-md text-gray-400 mt-4">
             Waiting on {currentPlayer?.name}...
           </p>

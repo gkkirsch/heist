@@ -10,6 +10,7 @@ function TVSetup() {
   const { gameCode } = useParams();
   const [gameState, setGameState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [numRounds, setNumRounds] = useState(10); // Default to 10 rounds
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,7 +45,8 @@ function TVSetup() {
     await updateDoc(gameRef, {
       gameStarted: true,
       currentPlayerIndex: 0,
-      roundsLeft: gameState.numRounds || 10,
+      roundsLeft: numRounds,
+      numRounds: numRounds,
       waitingForDecisions: false,
       secretDecisions: {},
       bank: 0,
@@ -69,6 +71,23 @@ function TVSetup() {
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold mb-4">Game Code:</h2>
           <p className="text-6xl font-bold text-red-500">{gameCode}</p>
+        </div>
+        <div className="mb-8">
+          <label htmlFor="numRounds" className="block text-sm font-medium text-gray-300 mb-2">
+            Number of Rounds:
+          </label>
+          <select
+            id="numRounds"
+            value={numRounds}
+            onChange={(e) => setNumRounds(Number(e.target.value))}
+            className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+          >
+            {[5, 10, 15, 20].map((num) => (
+              <option key={num} value={num}>
+                {num}
+              </option>
+            ))}
+          </select>
         </div>
         <button
           onClick={startGame}
